@@ -18,28 +18,42 @@ func main() {
 	}
 	defer file.Close()
 
-	readBuffer := make([]byte, 8)
-	currentLineBuffer := make([]byte, 0, 100)
-
-	for {
-		n, err := file.Read(readBuffer)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			log.Fatalf("Error reading file: %v\n", err)
-		}
-
-		parts := bytes.Split(readBuffer[:n], []byte("\n"))
-
-		for partIndex := 0; partIndex < len(parts)-1; partIndex++ {
-			currentLineBuffer = append(currentLineBuffer, parts[partIndex]...)
-			fmt.Printf("read: %s\n", string(currentLineBuffer))
-			currentLineBuffer = currentLineBuffer[:0]
-		}
-
-		currentLineBuffer = append(currentLineBuffer, parts[len(parts)-1]...)
+	for line := range getLinesChannel(file) {
+		fmt.Printf("read: %s\n", line)
 	}
+}
 
-	fmt.Printf("read: %s\n", string(currentLineBuffer))
+func getLinesChannel(f io.ReadCloser) <-chan string {
+	linesChannel := make(chan string)
+
+	go func() {
+		defer close(linesChannel)
+
+		readBuffer := make([]byte, 8)
+		currentLineBuffer := make([]byte, 0, 100)
+
+		for {
+			n, err := f.Read(readBuffer)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				log.Fatalf("Error reading file: %v\n", err)
+			}
+
+			parts := bytes.Split(readBuffer[:n], []byte("\n"))
+
+			for partIndex := 0; partIndex < len(parts)-1; partIndex++ {
+				currentLineBuffer = append(currentLineBuffer, parts[partIndex]...)
+				linesChannel <- string(currentLineBuffer)
+				currentLineBuffer = currentLineBuffer[:0]
+			}
+
+			currentLineBuffer = append(currentLineBuffer, parts[len(parts)-1]...)
+		}
+
+		linesChannel <- string(currentLineBuffer)
+	}()
+
+	return linesChannel
 }
