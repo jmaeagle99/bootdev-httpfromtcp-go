@@ -1,0 +1,14 @@
+{
+    "name": "Go Dev Container",
+    "image": "mcr.microsoft.com/vscode/devcontainers/go:latest",
+    "customizations": {
+        "vscode": {
+            "settings": {},
+            "extensions": [
+                "github.vscode-github-actions",
+                "golang.go"
+            ]
+        }
+    },
+    "postCreateCommand": "go install github.com/spf13/cobra-cli@latest"
+}
