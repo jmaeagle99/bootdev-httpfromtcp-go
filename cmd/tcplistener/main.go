@@ -29,6 +29,7 @@ func main() {
 		}
 
 		fmt.Println("Server connection closed.")
+		connection.Close()
 	}
 }
 
