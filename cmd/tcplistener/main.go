@@ -1,12 +1,11 @@
 package main
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net"
+
+	"github.com/jmaeagle99/httpfromtcp/internal/request"
 )
 
 func main() {
@@ -19,51 +18,21 @@ func main() {
 	for {
 		connection, err := listener.Accept()
 		if err != nil {
-			log.Fatalf("Error accepting connection: %v\n", err)
+			log.Fatalf("Error accepting connection: %v", err)
 		}
 
-		fmt.Println("Server accepted connection.")
+		go func() {
+			defer connection.Close()
 
-		for line := range getLinesChannel(connection) {
-			fmt.Println(line)
-		}
-
-		fmt.Println("Server connection closed.")
-		connection.Close()
-	}
-}
-
-func getLinesChannel(f io.ReadCloser) <-chan string {
-	linesChannel := make(chan string)
-
-	go func() {
-		defer close(linesChannel)
-
-		readBuffer := make([]byte, 8)
-		currentLineBuffer := make([]byte, 0, 100)
-
-		for {
-			n, err := f.Read(readBuffer)
+			request, err := request.RequestFromReader(connection)
 			if err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				log.Fatalf("Error reading file: %v\n", err)
+				log.Fatalf("Error reading request: %v", err)
 			}
 
-			parts := bytes.Split(readBuffer[:n], []byte("\n"))
-
-			for partIndex := 0; partIndex < len(parts)-1; partIndex++ {
-				currentLineBuffer = append(currentLineBuffer, parts[partIndex]...)
-				linesChannel <- string(currentLineBuffer)
-				currentLineBuffer = currentLineBuffer[:0]
-			}
-
-			currentLineBuffer = append(currentLineBuffer, parts[len(parts)-1]...)
-		}
-
-		linesChannel <- string(currentLineBuffer)
-	}()
-
-	return linesChannel
+			fmt.Println("Request line:")
+			fmt.Printf("- Method: %s\n", request.RequestLine.Method)
+			fmt.Printf("- Target: %s\n", request.RequestLine.RequestTarget)
+			fmt.Printf("- Version: %s\n", request.RequestLine.HttpVersion)
+		}()
+	}
 }
